@@ -202,7 +202,6 @@ if odpal:
                     znak = "+" if t_elo_change >= 0 else ""
                     
                     st.metric(label="🏆 Aktualne ELO (CS2)", value=curr_elo, delta=f"{t_elo_change} od wczoraj")
-                    st.caption(f"Kalkulacja: **{yest_elo}** (wczoraj) {znak}{t_elo_change} (dziś) = **{curr_elo}**")
                 else:
                     st.metric(label="🏆 Aktualne ELO (CS2)", value=player_info['elo'])
                 
@@ -292,6 +291,7 @@ if odpal:
                             fig_loss.update_traces(textinfo='percent+label', textfont_size=14)
                             fig_loss.update_layout(margin=dict(t=20, b=20, l=0, r=0), showlegend=False)
                             st.plotly_chart(fig_loss, use_container_width=True)
+
 
 
 
