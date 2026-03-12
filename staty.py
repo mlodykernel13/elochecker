@@ -160,7 +160,7 @@ with st.sidebar:
     odpal = st.button("jazda", use_container_width=True)
     
     st.markdown("---")
-    st.markdown("#### ⚡ Szybki wybór ziomków:")
+    st.markdown("#### n00bki do elocheckingu")
     st.button("👷 inżynier latino final boss", on_click=ustaw_gracza, args=("mruwkojad13",), use_container_width=True)
     st.button("👶 małolat", on_click=ustaw_gracza, args=("nekuu--",), use_container_width=True)
     st.button("🧘‍♂️ low cortisol player", on_click=ustaw_gracza, args=("Jastrzebino",), use_container_width=True)
@@ -292,3 +292,4 @@ if odpal:
                             fig_loss.update_traces(textinfo='percent+label', textfont_size=14)
                             fig_loss.update_layout(margin=dict(t=20, b=20, l=0, r=0), showlegend=False)
                             st.plotly_chart(fig_loss, use_container_width=True)
+
