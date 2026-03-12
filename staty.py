@@ -4,7 +4,7 @@ from datetime import datetime
 import plotly.express as px
 
 # Konfiguracja strony
-st.set_page_config(page_title="Faceit Tracker", page_icon="🎮", layout="wide")
+st.set_page_config(page_title="elochecker", page_icon="😈", layout="wide")
 
 BASE_URL = "https://open.faceit.com/data/v4"
 GAME = "cs2"
@@ -292,4 +292,5 @@ if odpal:
                             fig_loss.update_traces(textinfo='percent+label', textfont_size=14)
                             fig_loss.update_layout(margin=dict(t=20, b=20, l=0, r=0), showlegend=False)
                             st.plotly_chart(fig_loss, use_container_width=True)
+
 
