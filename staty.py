@@ -11,6 +11,13 @@ GAME = "cs2"
 # Twój klucz API wpisany na stałe
 API_KEY = "e48abb41-5766-453c-b372-40bcac71b1fe"
 
+# --- SYSTEM ZMIANY NICKÓW ---
+if 'wybrany_gracz' not in st.session_state:
+    st.session_state['wybrany_gracz'] = "mruwkojad13"
+
+def ustaw_gracza(nick):
+    st.session_state['wybrany_gracz'] = nick
+
 # --- FUNKCJE API ---
 def get_headers():
     return {
@@ -147,9 +154,18 @@ st.markdown("daj nick i powiedz co cie interesuje.")
 # Pasek boczny (Sidebar) na ustawienia
 with st.sidebar:
     st.header("⚙️ Ustawienia")
-    nick_input = st.text_input("nick", value="mruwkojad13")
+    # Pole tekstowe jest teraz podpięte pod klucz "wybrany_gracz"
+    nick_input = st.text_input("nick", key="wybrany_gracz")
     zakres = st.radio("zakresik:", ["Ostatnie 10 meczy", "Ostatnie 30 meczy", "Dzisiejsze mecze"])
     odpal = st.button("jazda", use_container_width=True)
+    
+    st.markdown("---")
+    st.markdown("#### ⚡ Szybki wybór ziomków:")
+    st.button("👷 inżynier latino final boss", on_click=ustaw_gracza, args=("mruwkojad13",), use_container_width=True)
+    st.button("👶 małolat", on_click=ustaw_gracza, args=("nekuu--",), use_container_width=True)
+    st.button("🧘‍♂️ low cortisol player", on_click=ustaw_gracza, args=("Jastrzebino",), use_container_width=True)
+    st.button("🤬 high cortisol player", on_click=ustaw_gracza, args=("guwnozer13",), use_container_width=True)
+    st.button("🏆 zwycięzca ultraligi", on_click=ustaw_gracza, args=("sfdasrw",), use_container_width=True)
 
 # Główna część aplikacji
 if odpal:
@@ -186,6 +202,7 @@ if odpal:
                     znak = "+" if t_elo_change >= 0 else ""
                     
                     st.metric(label="🏆 Aktualne ELO (CS2)", value=curr_elo, delta=f"{t_elo_change} od wczoraj")
+                    st.caption(f"Kalkulacja: **{yest_elo}** (wczoraj) {znak}{t_elo_change} (dziś) = **{curr_elo}**")
                 else:
                     st.metric(label="🏆 Aktualne ELO (CS2)", value=player_info['elo'])
                 
@@ -275,4 +292,3 @@ if odpal:
                             fig_loss.update_traces(textinfo='percent+label', textfont_size=14)
                             fig_loss.update_layout(margin=dict(t=20, b=20, l=0, r=0), showlegend=False)
                             st.plotly_chart(fig_loss, use_container_width=True)
-
