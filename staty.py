@@ -161,7 +161,7 @@ with st.sidebar:
     
     st.markdown("---")
     st.markdown("#### n00bki do elocheckingu")
-    st.button("👷 inżynier latino final boss", on_click=ustaw_gracza, args=("mruwkojad13",), use_container_width=True)
+    st.button("🤠 inżynier latino final boss", on_click=ustaw_gracza, args=("mruwkojad13",), use_container_width=True)
     st.button("👶 małolat", on_click=ustaw_gracza, args=("nekuu--",), use_container_width=True)
     st.button("🧘‍♂️ low cortisol player", on_click=ustaw_gracza, args=("Jastrzebino",), use_container_width=True)
     st.button("🤬 high cortisol player", on_click=ustaw_gracza, args=("guwnozer13",), use_container_width=True)
@@ -284,7 +284,7 @@ if odpal:
                         loss_values = [cat['loss_trolled'], cat['loss_avg'], cat['loss_my_fault']]
                         if sum(loss_values) > 0:
                             fig_loss = px.pie(
-                                names=["N00bki w teamie", "Średniawa", "Ja byłem n00bkiem"],
+                                names=["N00bki w teamie", "Średniawa", "przyn00bione"],
                                 values=loss_values,
                                 hole=0.5,
                                 color_discrete_sequence=["#198754", "#ffc107", "#dc3545"] # Zielony, Żółty, Czerwony
@@ -292,5 +292,6 @@ if odpal:
                             fig_loss.update_traces(textinfo='percent+label', textfont_size=14)
                             fig_loss.update_layout(margin=dict(t=20, b=20, l=0, r=0), showlegend=False)
                             st.plotly_chart(fig_loss, use_container_width=True)
+
 
 
