@@ -1,6 +1,7 @@
 import streamlit as st
 import requests
 from datetime import datetime
+import plotly.express as px
 
 # Konfiguracja strony
 st.set_page_config(page_title="Faceit Tracker", page_icon="🎮", layout="wide")
@@ -166,7 +167,7 @@ if odpal:
             p_id = player_info["player_id"]
             
             # --- SEKCJA NAGŁÓWKA Z AVATAREM I ELO ---
-            with st.spinner('elo checking'):
+            with st.spinner('obczajanie czy ziomo ma ogar... (liczę ELO)'):
                 t_wins, t_losses, t_elo_change = get_todays_wl(p_id, headers)
             
             st.markdown("---")
@@ -184,9 +185,10 @@ if odpal:
                     yest_elo = curr_elo - t_elo_change
                     znak = "+" if t_elo_change >= 0 else ""
                     
-                    st.metric(label="🏆 Aktualne ELO ", value=curr_elo, delta=f"{t_elo_change} dzisiaj ")
+                    st.metric(label="🏆 Aktualne ELO (CS2)", value=curr_elo, delta=f"{t_elo_change} od wczoraj")
+                    st.caption(f"Kalkulacja: **{yest_elo}** (wczoraj) {znak}{t_elo_change} (dziś) = **{curr_elo}**")
                 else:
-                    st.metric(label="🏆 Aktualne ELO ", value=player_info['elo'])
+                    st.metric(label="🏆 Aktualne ELO (CS2)", value=player_info['elo'])
                 
             with col_wl:
                 st.metric(label="📅 Dzisiejszy Bilans (W/L)", value=f"{t_wins}W - {t_losses}L")
@@ -232,7 +234,7 @@ if odpal:
                     
                     st.divider()
                     
-                    # --- RYSOWANIE KATEGORII ---
+                    # --- RYSOWANIE KATEGORII Z WYKRESAMI ---
                     cat = wyniki['categories']
                     
                     col_win, col_loss = st.columns(2)
@@ -243,8 +245,34 @@ if odpal:
                         st.info(f"🟡 średniawa (ADR 75-95): **{cat['win_avg']}**")
                         st.warning(f"🔴 zagrane jak pies (ADR < 75): **{cat['win_carried_by']}**")
                         
+                        # Wykres Win
+                        win_values = [cat['win_carried'], cat['win_avg'], cat['win_carried_by']]
+                        if sum(win_values) > 0:
+                            fig_win = px.pie(
+                                names=["Carry ostre", "Średniawa", "Zagrane jak pies"],
+                                values=win_values,
+                                hole=0.5,
+                                color_discrete_sequence=["#198754", "#ffc107", "#dc3545"] # Zielony, Żółty, Czerwony
+                            )
+                            fig_win.update_traces(textinfo='percent+label', textfont_size=14)
+                            fig_win.update_layout(margin=dict(t=20, b=20, l=0, r=0), showlegend=False)
+                            st.plotly_chart(fig_win, use_container_width=True)
+                        
                     with col_loss:
                         st.markdown("#### 🚫 Looski arbuzki")
                         st.success(f"🟢 n00bki w teamie (ADR > 90): **{cat['loss_trolled']}**")
                         st.info(f"🟡 średniawa (ADR 70-90): **{cat['loss_avg']}**")
                         st.error(f"🔴 ja byłem nobkiem (ADR < 70): **{cat['loss_my_fault']}**")
+                        
+                        # Wykres Loss
+                        loss_values = [cat['loss_trolled'], cat['loss_avg'], cat['loss_my_fault']]
+                        if sum(loss_values) > 0:
+                            fig_loss = px.pie(
+                                names=["N00bki w teamie", "Średniawa", "Ja byłem n00bkiem"],
+                                values=loss_values,
+                                hole=0.5,
+                                color_discrete_sequence=["#198754", "#ffc107", "#dc3545"] # Zielony, Żółty, Czerwony
+                            )
+                            fig_loss.update_traces(textinfo='percent+label', textfont_size=14)
+                            fig_loss.update_layout(margin=dict(t=20, b=20, l=0, r=0), showlegend=False)
+                            st.plotly_chart(fig_loss, use_container_width=True)
