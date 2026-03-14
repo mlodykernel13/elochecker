@@ -51,15 +51,21 @@ def get_match_stats(match_id, headers):
         return response.json()
     return None
 
-def get_todays_wl(player_id, headers):
-    midnight = datetime.combine(datetime.today(), datetime.min.time()).timestamp()
-    matches = get_match_history(player_id, 20, headers)
+def get_daily_wl(player_id, headers):
+    today_midnight = datetime.combine(datetime.today(), datetime.min.time()).timestamp()
+    yesterday_midnight = today_midnight - 86400 # Odejmujemy 24 godziny (w sekundach)
     
-    wins = 0
-    losses = 0
+    # Pobieramy trochę więcej meczów, żeby starczyło na 2 dni
+    matches = get_match_history(player_id, 40, headers)
+    
+    t_wins, t_losses = 0, 0
+    y_wins, y_losses = 0, 0
     
     for match in matches:
-        if match.get("finished_at", 0) >= midnight:
+        finished = match.get("finished_at", 0)
+        
+        if finished >= today_midnight:
+            # Dzisiejsze mecze
             match_id = match["match_id"]
             stats = get_match_stats(match_id, headers)
             if stats and "rounds" in stats:
@@ -69,14 +75,31 @@ def get_todays_wl(player_id, headers):
                         if player["player_id"] == player_id:
                             result = player["player_stats"].get("Result", "0")
                             if result == "1":
-                                wins += 1
+                                t_wins += 1
                             else:
-                                losses += 1
+                                t_losses += 1
+                                
+        elif finished >= yesterday_midnight:
+            # Wczorajsze mecze
+            match_id = match["match_id"]
+            stats = get_match_stats(match_id, headers)
+            if stats and "rounds" in stats:
+                match_data = stats["rounds"][0]
+                for team in match_data["teams"]:
+                    for player in team["players"]:
+                        if player["player_id"] == player_id:
+                            result = player["player_stats"].get("Result", "0")
+                            if result == "1":
+                                y_wins += 1
+                            else:
+                                y_losses += 1
         else:
+            # Jeśli natrafiliśmy na mecz starszy niż wczoraj, przerywamy by oszczędzać API
             break
             
-    elo_change = (wins * 25) - (losses * 25)
-    return wins, losses, elo_change
+    t_elo_change = (t_wins * 25) - (t_losses * 25)
+    y_elo_change = (y_wins * 25) - (y_losses * 25)
+    return t_wins, t_losses, t_elo_change, y_wins, y_losses, y_elo_change
 
 # --- GŁÓWNA LOGIKA ANALIZY ---
 def analyze_data(matches, player_id, headers):
@@ -181,12 +204,13 @@ if odpal:
         else:
             p_id = player_info["player_id"]
             
-            # --- SEKCJA NAGŁÓWKA Z AVATAREM I ELO ---
-            with st.spinner('obczajanie czy ziomo ma ogar... (liczę ELO)'):
-                t_wins, t_losses, t_elo_change = get_todays_wl(p_id, headers)
+            # --- SEKCJA NAGŁÓWKA ---
+            with st.spinner('obczajanie czy ziomo ma ogar... (liczę ELO i bilans)'):
+                t_wins, t_losses, t_elo, y_wins, y_losses, y_elo = get_daily_wl(p_id, headers)
             
             st.markdown("---")
-            col_avatar, col_elo, col_wl, col_empty = st.columns([1, 2, 2, 2])
+            # Podzieliliśmy teraz panel na 4 równe kolumny
+            col_avatar, col_elo, col_wl_today, col_wl_yest = st.columns([1, 2, 2, 2])
             
             with col_avatar:
                 if player_info["avatar"]:
@@ -197,16 +221,18 @@ if odpal:
             with col_elo:
                 if str(player_info['elo']).isdigit():
                     curr_elo = int(player_info['elo'])
-                    yest_elo = curr_elo - t_elo_change
-                    znak = "+" if t_elo_change >= 0 else ""
-                    
-                    st.metric(label="🏆 Aktualne ELO (CS2)", value=curr_elo, delta=f"{t_elo_change} od wczoraj")
-                    st.caption(f"Kalkulacja: **{yest_elo}** (wczoraj) {znak}{t_elo_change} (dziś) = **{curr_elo}**")
+                    yest_elo = curr_elo - t_elo
+                    znak = "+" if t_elo >= 0 else ""
+                    st.metric(label="🏆 Aktualne ELO (CS2)", value=curr_elo, delta=f"{t_elo} od wczoraj")
+                    st.caption(f"Kalkulacja: **{yest_elo}** (wczoraj) {znak}{t_elo} (dziś) = **{curr_elo}**")
                 else:
                     st.metric(label="🏆 Aktualne ELO (CS2)", value=player_info['elo'])
                 
-            with col_wl:
-                st.metric(label="📅 Dzisiejszy Bilans (W/L)", value=f"{t_wins}W - {t_losses}L")
+            with col_wl_today:
+                st.metric(label="📅 Dzisiejszy Bilans (W/L)", value=f"{t_wins}W - {t_losses}L", delta=f"{t_elo} ELO")
+                
+            with col_wl_yest:
+                st.metric(label="⏪ Wczorajszy Bilans (W/L)", value=f"{y_wins}W - {y_losses}L", delta=f"{y_elo} ELO")
                 
             st.markdown("---")
 
@@ -221,16 +247,11 @@ if odpal:
                     all_matches = get_match_history(p_id, 50, headers)
                     matches = [m for m in all_matches if m.get("finished_at", 0) >= midnight]
                 elif zakres == "Wczorajsze mecze":
-                    # Wyznaczamy wczorajszą i dzisiejszą północ w formacie timestamp
                     today_midnight = datetime.combine(datetime.today(), datetime.min.time())
                     yesterday_midnight = today_midnight - timedelta(days=1)
-                    
                     today_ts = today_midnight.timestamp()
                     yesterday_ts = yesterday_midnight.timestamp()
-                    
                     all_matches = get_match_history(p_id, 50, headers)
-                    # Filtrujemy tak, aby mecz był rozegrany PÓŹNIEJ LUB RÓWNO wczorajszej północy, 
-                    # ale PRZED dzisiejszą północą
                     matches = [m for m in all_matches if yesterday_ts <= m.get("finished_at", 0) < today_ts]
 
             if not matches:
@@ -261,7 +282,7 @@ if odpal:
                     
                     st.divider()
                     
-                    # --- RYSOWANIE KATEGORII Z WYKRESAMI ---
+                    # --- RYSOWANIE KATEGORII Z WYKRESAMI KOŁOWYMI ---
                     cat = wyniki['categories']
                     
                     col_win, col_loss = st.columns(2)
@@ -272,14 +293,23 @@ if odpal:
                         st.info(f"🟡 średniawa (ADR 75-95): **{cat['win_avg']}**")
                         st.warning(f"🔴 zagrane jak pies (ADR < 75): **{cat['win_carried_by']}**")
                         
-                        # Wykres Win
-                        win_values = [cat['win_carried'], cat['win_avg'], cat['win_carried_by']]
-                        if sum(win_values) > 0:
+                        # Wykres Win - Słownik ze sztywno przypisanymi kolorami
+                        win_data = {
+                            "Kategoria": ["Carry ostre", "Średniawa", "Zagrane jak pies"],
+                            "Wartość": [cat['win_carried'], cat['win_avg'], cat['win_carried_by']]
+                        }
+                        if sum(win_data["Wartość"]) > 0:
                             fig_win = px.pie(
-                                names=["Carry ostre", "Średniawa", "Zagrane jak pies"],
-                                values=win_values,
+                                win_data,
+                                names="Kategoria",
+                                values="Wartość",
+                                color="Kategoria",
                                 hole=0.5,
-                                color_discrete_sequence=["#198754", "#ffc107", "#dc3545"] # Zielony, Żółty, Czerwony
+                                color_discrete_map={
+                                    "Carry ostre": "#198754",      # ZIELONY
+                                    "Średniawa": "#ffc107",        # ŻÓŁTY
+                                    "Zagrane jak pies": "#dc3545"  # CZERWONY
+                                }
                             )
                             fig_win.update_traces(textinfo='percent+label', textfont_size=14)
                             fig_win.update_layout(margin=dict(t=20, b=20, l=0, r=0), showlegend=False)
@@ -289,16 +319,25 @@ if odpal:
                         st.markdown("#### 🚫 Looski arbuzki")
                         st.success(f"🟢 n00bki w teamie (ADR > 90): **{cat['loss_trolled']}**")
                         st.info(f"🟡 średniawa (ADR 70-90): **{cat['loss_avg']}**")
-                        st.error(f"🔴 ja byłem nobkiem (ADR < 70): **{cat['loss_my_fault']}**")
+                        st.error(f"🔴 zagrane jak pies (ADR < 70): **{cat['loss_my_fault']}**")
                         
-                        # Wykres Loss
-                        loss_values = [cat['loss_trolled'], cat['loss_avg'], cat['loss_my_fault']]
-                        if sum(loss_values) > 0:
+                        # Wykres Loss - Słownik ze sztywno przypisanymi kolorami
+                        loss_data = {
+                            "Kategoria": ["N00bki w teamie", "Średniawa", "Zagrane jak pies"],
+                            "Wartość": [cat['loss_trolled'], cat['loss_avg'], cat['loss_my_fault']]
+                        }
+                        if sum(loss_data["Wartość"]) > 0:
                             fig_loss = px.pie(
-                                names=["N00bki w teamie", "Średniawa", "Ja byłem n00bkiem"],
-                                values=loss_values,
+                                loss_data,
+                                names="Kategoria",
+                                values="Wartość",
+                                color="Kategoria",
                                 hole=0.5,
-                                color_discrete_sequence=["#198754", "#ffc107", "#dc3545"] # Zielony, Żółty, Czerwony
+                                color_discrete_map={
+                                    "N00bki w teamie": "#198754",  # ZIELONY
+                                    "Średniawa": "#ffc107",        # ŻÓŁTY
+                                    "Zagrane jak pies": "#dc3545"  # CZERWONY
+                                }
                             )
                             fig_loss.update_traces(textinfo='percent+label', textfont_size=14)
                             fig_loss.update_layout(margin=dict(t=20, b=20, l=0, r=0), showlegend=False)
