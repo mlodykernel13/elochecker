@@ -1,10 +1,10 @@
 import streamlit as st
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 import plotly.express as px
 
 # Konfiguracja strony
-st.set_page_config(page_title="elochecker", page_icon="😈", layout="wide")
+st.set_page_config(page_title="Faceit Tracker", page_icon="🎮", layout="wide")
 
 BASE_URL = "https://open.faceit.com/data/v4"
 GAME = "cs2"
@@ -154,14 +154,13 @@ st.markdown("daj nick i powiedz co cie interesuje.")
 # Pasek boczny (Sidebar) na ustawienia
 with st.sidebar:
     st.header("⚙️ Ustawienia")
-    # Pole tekstowe jest teraz podpięte pod klucz "wybrany_gracz"
     nick_input = st.text_input("nick", key="wybrany_gracz")
-    zakres = st.radio("zakresik:", ["Ostatnie 10 meczy", "Ostatnie 30 meczy", "Dzisiejsze mecze"])
+    zakres = st.radio("zakresik:", ["Ostatnie 10 meczy", "Ostatnie 30 meczy", "Dzisiejsze mecze", "Wczorajsze mecze"])
     odpal = st.button("jazda", use_container_width=True)
     
     st.markdown("---")
-    st.markdown("#### n00bki do elocheckingu")
-    st.button("🤠 inżynier latino final boss", on_click=ustaw_gracza, args=("mruwkojad13",), use_container_width=True)
+    st.markdown("#### ⚡ Szybki wybór ziomków:")
+    st.button("👷 inżynier latino final boss", on_click=ustaw_gracza, args=("mruwkojad13",), use_container_width=True)
     st.button("👶 małolat", on_click=ustaw_gracza, args=("nekuu--",), use_container_width=True)
     st.button("🧘‍♂️ low cortisol player", on_click=ustaw_gracza, args=("Jastrzebino",), use_container_width=True)
     st.button("🤬 high cortisol player", on_click=ustaw_gracza, args=("guwnozer13",), use_container_width=True)
@@ -202,6 +201,7 @@ if odpal:
                     znak = "+" if t_elo_change >= 0 else ""
                     
                     st.metric(label="🏆 Aktualne ELO (CS2)", value=curr_elo, delta=f"{t_elo_change} od wczoraj")
+                    st.caption(f"Kalkulacja: **{yest_elo}** (wczoraj) {znak}{t_elo_change} (dziś) = **{curr_elo}**")
                 else:
                     st.metric(label="🏆 Aktualne ELO (CS2)", value=player_info['elo'])
                 
@@ -216,10 +216,22 @@ if odpal:
                     matches = get_match_history(p_id, 10, headers)
                 elif zakres == "Ostatnie 30 meczy":
                     matches = get_match_history(p_id, 30, headers)
-                else:
+                elif zakres == "Dzisiejsze mecze":
                     midnight = datetime.combine(datetime.today(), datetime.min.time()).timestamp()
                     all_matches = get_match_history(p_id, 50, headers)
                     matches = [m for m in all_matches if m.get("finished_at", 0) >= midnight]
+                elif zakres == "Wczorajsze mecze":
+                    # Wyznaczamy wczorajszą i dzisiejszą północ w formacie timestamp
+                    today_midnight = datetime.combine(datetime.today(), datetime.min.time())
+                    yesterday_midnight = today_midnight - timedelta(days=1)
+                    
+                    today_ts = today_midnight.timestamp()
+                    yesterday_ts = yesterday_midnight.timestamp()
+                    
+                    all_matches = get_match_history(p_id, 50, headers)
+                    # Filtrujemy tak, aby mecz był rozegrany PÓŹNIEJ LUB RÓWNO wczorajszej północy, 
+                    # ale PRZED dzisiejszą północą
+                    matches = [m for m in all_matches if yesterday_ts <= m.get("finished_at", 0) < today_ts]
 
             if not matches:
                 st.warning("Brak meczów w wybranym zakresie.")
@@ -283,7 +295,7 @@ if odpal:
                         loss_values = [cat['loss_trolled'], cat['loss_avg'], cat['loss_my_fault']]
                         if sum(loss_values) > 0:
                             fig_loss = px.pie(
-                                names=["N00bki w teamie", "Średniawa", "przyn00bione"],
+                                names=["N00bki w teamie", "Średniawa", "Ja byłem n00bkiem"],
                                 values=loss_values,
                                 hole=0.5,
                                 color_discrete_sequence=["#198754", "#ffc107", "#dc3545"] # Zielony, Żółty, Czerwony
@@ -291,7 +303,3 @@ if odpal:
                             fig_loss.update_traces(textinfo='percent+label', textfont_size=14)
                             fig_loss.update_layout(margin=dict(t=20, b=20, l=0, r=0), showlegend=False)
                             st.plotly_chart(fig_loss, use_container_width=True)
-
-
-
-
